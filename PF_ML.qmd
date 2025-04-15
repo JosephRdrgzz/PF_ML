@@ -4,23 +4,110 @@ format: pdf
 editor: visual
 ---
 
-## Quarto
+## Entendimiento del negocio
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+### a. ¿Por qué se implementó el etiquetado frontal?
 
-## Running Code
+El Gobierno de México implementó el etiquetado frontal de advertencia en alimentos y bebidas en respuesta a una **grave crisis de salud pública** causada por las altísimas tasas de obesidad y enfermedades crónicas ligadas a la mala alimentación. México se había posicionado como líder mundial en obesidad infantil y segundo lugar en obesidad de adolescentes y adultos, lo que derivó en un incremento dramático de padecimientos como la diabetes. Tan solo en la última década, las muertes por diabetes alcanzaron niveles alarmantes. Frente a esta emergencia, el gobierno impulsó la modificación de la Norma Oficial NOM-051 para introducir un nuevo etiquetado frontal con sellos de advertencia. Este etiquetado entró en vigor el **1 de octubre de 2020** y busca informar de forma clara y visible sobre el exceso de azúcares, sodio, grasas y calorías en productos procesados, de modo que los consumidores puedan tomar decisiones más saludables.
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+### b. Diccionario de variables
+
+| Variable | Tipo | Valores / Rango | Unidades | Definición |
+|---------------|---------------|---------------|---------------|---------------|
+| P1 | Categórica ordinal | 1-7, 9 | Calorías | Estima cuántas calorías diarias debe ingerir una persona similar |
+| P3 | Categórica nominal | 1=Sí, 2=No, 9=NS/NR | — | Conocimiento de la existencia de info nutrimental |
+| P4 | Categórica nominal | 1=Sí, 2=No, 9=NS/NR | — | Si lee o no la información nutrimental |
+| P7 | Categórica ordinal | 1 a 5, 9 | — | Frecuencia con la que elige productos por información del empaque |
+| Edad | Numérica continua | 20–112 | Años | Edad del entrevistado |
+| Sexo | Categórica nominal | 1=Hombre, 2=Mujer | — | Sexo del entrevistado |
+| Entidad federativa | Categórica | 1–32 | — | Estado de residencia |
+| Dominio | Categórica | 1=Urbano, 2=Rural | — | Tipo de localidad |
+| Región | Categórica | 1=Norte, 2=Centro, 3=CDMX, 4=Sur | — | Zona geográfica |
+| Estrato | Categórica | 1–4 | — | Nivel socioeconómico |
+| Estrato de diseño | Texto | ID | — | Identificador geográfico de estrato muestral |
+| UPM de diseño | Texto | ID | — | Unidad Primaria de Muestreo |
+
+> 💡 Los valores "9" en preguntas P1, P3, P4, y P7 representan "No sabe / No responde" y se tratan como NA.
+
+------------------------------------------------------------------------
+
+### c. Problemas de clasificación
+
+#### i. Problema 1
+
+**Objetivo:** Predecir si una persona **NO** lee la información nutrimental (P4).
+
+-   Variable dependiente: `P4` ∈ Ω₀ = {NO, SI}
+-   Valor de interés: "NO"
+-   Predictoras: `P1`, `P3`, `Edad`, `Sexo`, `Entidad federativa`, `Dominio`, `Región`, `Estrato sociodemográfico`
+
+#### ii. Problema 2
+
+**Objetivo:** Predecir la **frecuencia** con que una persona elige productos por información del empaque (`P7`, valores ordinales del 1 al 5).
+
+-   Variable dependiente: `P7`
+-   Predictoras: mismas que en problema 1, pero **no se usa P4**
+
+------------------------------------------------------------------------
+
+### d. Lectura y preparación de los datos
 
 ```{r}
-1 + 1
+prob1 <- read.csv("datosTF.csv", header = TRUE)
 ```
 
-You can add options to executable code like this
+i\. Crear 2 subconjuntos de datos, uno por problema.
 
 ```{r}
-#| echo: false
-2 * 2
+prob1 <- read.csv("datosTF.csv", header = TRUE)
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+```{r}
+prob2 <- read.csv("datosTF.csv", header = TRUE)
+```
+
+ii\. Eliminar los renglones con NA y de las personas que no saben o no respondieron (código 9).
+
+```{r}
+nrow(prob1)  # antes
+#quitar los NA haciendo que los 9 se conviertan en NA
+prob1$P4[prob1$P4 == 9] <- NA
+#quitanto na
+prob1 <- na.omit(prob1)
+nrow(prob1)  # despues
+```
+
+```{r}
+nrow(prob2)  # antes
+#parar 9s a na
+prob2$P7[prob2$P7 == 9] <- NA
+#pasamos a factor ordinal
+prob2 <- na.omit(prob2)
+nrow(prob2)  # despues
+```
+
+iii\. Sustituir en la variable dependiente el valor numérico por su significado (código).
+
+```{r}
+#para p1
+# Convertir P4 numérico a "SI"/"NO"
+prob1$P4 <- ifelse(prob1$P4 == 1, "SI", "NO")
+prob1$P4 <- factor(prob1$P4, levels = c("NO","SI"))
+```
+
+```{r}
+#para p2
+prob2$P7 <- factor(prob2$P7, 
+                   levels = 1:5,
+                   labels = c("Nunca", "Casi nunca", "A veces", 
+                              "Casi siempre", "Siempre"),
+                   ordered = TRUE)
+```
+
+iv\. Reportar el número de renglones que quedó en cada uno.
+
+```{r}
+# Contar renglones en cada conjunto
+nrow(prob1)  # Número de renglones en problema 1
+nrow(prob2)  # Número de renglones en problema 2
+```
