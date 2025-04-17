@@ -109,5 +109,46 @@ iv\. Reportar el número de renglones que quedó en cada uno.
 ```{r}
 # Contar renglones en cada conjunto
 nrow(prob1)  # Número de renglones en problema 1
-nrow(prob2)  # Número de renglones en problema 2
+nrow(prob2)  # Número de renglones en problema 
 ```
+
+Problema 1.
+
+2\. Entendimiento de los datos
+
+Análisis estadístico de los rasgos del vector de características (apoyarse de gráficos, de tamaño apropiado)
+
+a\. Número de datos faltantes por columna.
+
+```{r}
+#carga de datos
+library(tidyverse)
+problema1 <- read.csv("datosTF.csv", header = TRUE)
+glimpse(problema1)   # estructura y tipos de datos
+```
+
+b\. Análisis univariado.
+
+```{r}
+#  Contar y mostrar NAs por columna
+na_por_col <- colSums(is.na(problema1))
+print(na_por_col)
+```
+
+```{r}
+barplot(na_por_col,
+        las   = 2,                          
+        ylim  = c(0, 15000))
+```
+
+c\. Análisis de correlación.
+
+```{r}
+str(problema1$P4)
+```
+
+d\. Realizar una comparación de la distribución de cada una de las variables con respecto a la variable de interés.
+
+e\. Otros análisis bivariados y/o multivariados.
+
+f\. Escribir los hallazgos e información útil de este paso
