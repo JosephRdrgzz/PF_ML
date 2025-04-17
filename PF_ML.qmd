@@ -144,11 +144,143 @@ barplot(na_por_col,
 c\. Análisis de correlación.
 
 ```{r}
-str(problema1$P4)
+
+# Cargar datos
+datos <- read.csv("datosTF.csv", header = TRUE)
+
+# Paso 1: Crear variable binaria para P4 (1 = SI, 0 = NO, NA = no responde)
+datos$P4_bin <- ifelse(datos$P4 == 1, 1,
+                       ifelse(datos$P4 == 2, 0, NA))
+
+# Paso 2: Eliminar filas donde P4_bin es NA
+df_filtrado <- datos[!is.na(datos$P4_bin), ]
+
+# Paso 3: Seleccionar variables numéricas incluyendo P3 y excluyendo P7
+vars_numericas <- df_filtrado %>%
+  select(P1, P3, EDAD, SEXO, ENT, DOMINIO, REGION, EST_DIS, UPM_DIS, ESTRATO)
+
+# Paso 4: Calcular correlaciones con P4_bin
+correlaciones <- cor(df_filtrado$P4_bin, vars_numericas)
+
+# Paso 5: Asignar nombres legibles
+nombres_legibles <- c(
+  "P1 (calorías)", 
+  "P3 (conoce info)", 
+  "Edad", 
+  "Sexo", 
+  "Entidad", 
+  "Dominio", 
+  "Región", 
+  "Estrato diseño", 
+  "UPM diseño", 
+  "Estrato socioeconómico"
+)
+
+# Asegurarse que los nombres coincidan
+names(correlaciones) <- nombres_legibles
+
+# Paso 6: Ordenar y mostrar
+correlaciones_ordenadas <- sort(correlaciones, decreasing = TRUE)
+correlaciones_ordenadas
 ```
 
 d\. Realizar una comparación de la distribución de cada una de las variables con respecto a la variable de interés.
 
+```{r}
+# Cargar librerías
+library(tidyverse)
+
+# Cargar datos limpios
+prob1 <- read.csv("datosTF.csv", header = TRUE)
+prob1$P4 <- ifelse(prob1$P4 == 1, "SI", "NO")
+prob1$P4 <- factor(prob1$P4, levels = c("NO", "SI"))
+
+str(prob1)
+
+# ----------- Edad
+ggplot(prob1, aes(x = P4, y = EDAD, fill = P4)) +
+  geom_boxplot() +
+  labs(title = "Distribución de Edad por respuesta en P4",
+       x = "¿Lee información nutrimental?",
+       y = "Edad") +
+  scale_fill_manual(values = c("NO" = "purple", "SI" = "forestgreen")) +
+  theme_minimal()
+
+
+# ----------- P1, calorías estimadas
+ggplot(prob1, aes(x = as.factor(P1), fill = P4)) +
+  geom_bar(position = "fill") +
+  labs(title = "Distribución de P1 (calorías) por respuesta en P4",
+       x = "Categoría de calorías estimadas",
+       y = "Proporción",
+       fill = "P4") +
+  theme_minimal()
+
+
+# ----------- P3, tabla nutrimental
+ggplot(prob1, aes(x = as.factor(P3), fill = P4)) +
+  geom_bar(position = "fill") +
+  labs(title = "Conocimiento de info nutrimental (P3) por P4",
+       x = "P3: ¿Conoce info nutrimental?",
+       y = "Proporción",
+       fill = "P4") +
+  theme_minimal()
+
+
+# ----------- Sexo
+ggplot(prob1, aes(x = as.factor(SEXO), fill = P4)) +
+  geom_bar(position = "fill") +
+  labs(title = "Distribución de Sexo por respuesta en P4",
+       x = "Sexo (1 = Hombre, 2 = Mujer)",
+       y = "Proporción",
+       fill = "P4") +
+  theme_minimal()
+
+
+
+# ----------- Región
+ggplot(prob1, aes(x = as.factor(REGION), fill = P4)) +
+  geom_bar(position = "fill") +
+  labs(title = "Distribución por Región geográfica y lectura P4",
+       x = "Región (1 = Norte, ..., 4 = Sur)",
+       y = "Proporción",
+       fill = "P4") +
+  theme_minimal()
+
+
+
+# ----------- Dominio 
+ggplot(prob1, aes(x = as.factor(DOMINIO), fill = P4)) +
+  geom_bar(position = "fill") +
+  labs(title = "Distribución de zona (Dominio) por P4",
+       x = "Dominio (1 = Urbano, 2 = Rural)",
+       y = "Proporción",
+       fill = "P4") +
+  theme_minimal()
+
+
+
+
+# ----------- Estrato sociodemográfico
+ggplot(prob1, aes(x = as.factor(ESTRATO), fill = P4)) +
+  geom_bar(position = "fill") +
+  labs(title = "Distribución por nivel socioeconómico (Estrato) y P4",
+       x = "Estrato (1 = Bajo ... 4 = Alto)",
+       y = "Proporción",
+       fill = "P4") +
+  theme_minimal()
+```
+
 e\. Otros análisis bivariados y/o multivariados.
 
 f\. Escribir los hallazgos e información útil de este paso
+
+-   **Edad** muestra una distribución distinta entre quienes leen y quienes no leen la información nutrimental. El gráfico de boxplot indica que las personas que **no leen tienden a ser ligeramente mayores**. Aunque la correlación es baja (r = -0.038), el patrón visual respalda esta diferencia.
+
+-   En **P1** (percepción de calorías que se deben consumir), se observó una **asociación importante con P4**. Aquellos que **no leen** las etiquetas se distribuyen de forma distinta entre las categorías calóricas, siendo más frecuentes en los extremos. Esta variable presentó la correlación **más fuerte con la variable objetivo** (r = -0.193), por lo que es una **predictora útil para modelado**.
+
+-   En el caso de **P3**, la variable mostró **desviación estándar cero** al realizar la limpieza de datos, por lo que fue imposible calcular su correlación. Esto se debe a que, lógicamente, **si una persona responde “sí” en P4 (que lee la información), necesariamente debe haber respondido “sí” en P3 (que sabe que existe dicha información)**. Por esta razón, la variable **P3 está implícitamente contenida en P4**, y su inclusión no aporta valor explicativo adicional. **Pensamos eliminarla del modelo para evitar redundancia.**
+
+-   Las variables **Sexo**, **Región**, **Dominio (zona urbana/rural)** y **Estrato socioeconómico** muestran patrones visuales diferenciables en las proporciones de lectura (P4), aunque sus **correlaciones individuales fueron bajas** (todas menores a r = ±0.06). Sin embargo, se sugiere conservarlas en el modelado, ya que podrían tener **efectos combinados o no lineales**, útiles en algoritmos como árboles de decisión.
+
+-   Finalmente, variables técnicas como **Entidad federativa (ENT)**, **UPM de diseño** y **Estrato de diseño** presentaron correlaciones cercanas a cero. Aunque pueden ser útiles para análisis exploratorio o ajustes de diseño muestral, **se sugiere descartarlas para el modelado predictivo** si no se justifica su aporte explicativo.
