@@ -159,29 +159,7 @@ df_filtrado <- datos[!is.na(datos$P4_bin), ]
 vars_numericas <- df_filtrado %>%
   select(P1, P3, EDAD, SEXO, ENT, DOMINIO, REGION, EST_DIS, UPM_DIS, ESTRATO)
 
-# Paso 4: Calcular correlaciones con P4_bin
-correlaciones <- cor(df_filtrado$P4_bin, vars_numericas)
 
-# Paso 5: Asignar nombres legibles
-nombres_legibles <- c(
-  "P1 (calorías)", 
-  "P3 (conoce info)", 
-  "Edad", 
-  "Sexo", 
-  "Entidad", 
-  "Dominio", 
-  "Región", 
-  "Estrato diseño", 
-  "UPM diseño", 
-  "Estrato socioeconómico"
-)
-
-# Asegurarse que los nombres coincidan
-names(correlaciones) <- nombres_legibles
-
-# Paso 6: Ordenar y mostrar
-correlaciones_ordenadas <- sort(correlaciones, decreasing = TRUE)
-correlaciones_ordenadas
 ```
 
 d\. Realizar una comparación de la distribución de cada una de las variables con respecto a la variable de interés.
@@ -316,16 +294,6 @@ pruebas$EST_DIS <- NULL
 pruebas$ENT <- NULL
 pruebas$UPM_DIS <- NULL
 
-# Crear nueva columna Edad_grupo
-pruebas <- pruebas |> 
-  mutate(Edad_grupo = case_when(
-    EDAD >= 20 & EDAD <= 34 ~ "20–34",
-    EDAD >= 35 & EDAD <= 49 ~ "35–49",
-    EDAD >= 50 & EDAD <= 64 ~ "50–64",
-    EDAD >= 65 & EDAD <= 80 ~ "65–80",
-    EDAD > 80              ~ "80+"
-  ))
-
 
 colSums(is.na(pruebas))
 # Confirmar los cambios
@@ -416,8 +384,40 @@ pruebas_completo$P4_bin <- ifelse(pruebas_completo$P4 == 1 | pruebas_completo$P4
 pruebas_completo$P3 <- as.numeric(pruebas_completo$P3)
 
 # Calcular correlación
-cor.test(pruebas_completo$P4_bin, pruebas_completo$P3, use = "complete.obs")
+# Asegurar que P4 esté como numérico y crear versión binaria
+pruebas_completo$P4 <- as.numeric(pruebas_completo$P4)
+pruebas_completo$P4_bin <- ifelse(pruebas_completo$P4 == 1, 1,
+                                  ifelse(pruebas_completo$P4 == 2, 0, NA))
 
+# Asegurar que P3 y P1 estén como numéricos también
+pruebas_completo$P3 <- as.numeric(pruebas_completo$P3)
+pruebas_completo$P1 <- as.numeric(pruebas_completo$P1)
+
+
+
+# Seleccionar variables numéricas predictoras
+vars_numericas <- pruebas_completo %>%
+  select(P1, P3, EDAD, SEXO, DOMINIO, REGION, ESTRATO)
+
+# Calcular correlaciones con P4_bin
+correlaciones <- cor(pruebas_completo$P4_bin, vars_numericas, use = "pairwise.complete.obs")
+
+# Asignar nombres legibles
+nombres_legibles <- c(
+  "P1 (calorías)", 
+  "P3 (conoce info)", 
+  "Edad", 
+  "Sexo", 
+  "Dominio (zona)", 
+  "Región", 
+  "Estrato socioeconómico"
+)
+
+names(correlaciones) <- nombres_legibles
+
+# Ordenar y mostrar correlaciones
+correlaciones_ordenadas <- sort(correlaciones, decreasing = TRUE)
+correlaciones_ordenadas
 ```
 
 c\. En variables categóricas considerar
@@ -474,14 +474,36 @@ iii\. Crear variables binarias.
 
 d\. En variables cuantitativas, sean discretas o continuas, considerar.
 
+-   Se binarizó anteriormente P4 al imputar datos NA y con valor 9 como 1 o 2.
+
+-   Binarizar SEXO
+
+    ```{r}
+    # Mujer = 1, Hombre = 0
+    pruebas_completo$SEXO_bin <- ifelse(pruebas_completo$SEXO == 2, 1, 0)
+    ```
+
 i\. Omitir el percentil 1 y el 99 de los datos, para disminuir outliers.
+
+```{r}
+# Calcular percentiles 1% y 99% de EDAD
+cuantil_1 <- quantile(pruebas_completo$EDAD, probs = 0.01, na.rm = TRUE)
+cuantil_99 <- quantile(pruebas_completo$EDAD, probs = 0.99, na.rm = TRUE)
+
+# Filtrar filas dentro del rango permitido
+pruebas_completo <- pruebas_completo %>%
+  filter(EDAD >= cuantil_1 & EDAD <= cuantil_99)
+
+# Verificar tamaño final
+nrow(pruebas_completo)
+```
 
 ii\. Crear categorías por ejemplo en edad si es bebe, niño, adolescente, adulto y adulto mayor.
 
 ```{r}
 library(dplyr)
 
-pruebas <- pruebas |> 
+pruebas_completo <- pruebas_completo |> 
   mutate(Edad_grupo = case_when(
     EDAD <= 30                  ~ "Joven",
     EDAD >= 31 & EDAD <= 45     ~ "Adulto joven",
@@ -490,7 +512,49 @@ pruebas <- pruebas |>
   ))
 ```
 
+```{r}
+str(pruebas_completo)
+```
+
 e\. Realizar actividades de entendimiento de los datos, si se considera necesario ante los cambios.
+
+```{r}
+# Calcular correlación
+# Asegurar que P4 esté como numérico y crear versión binaria
+pruebas_completo$P4 <- as.numeric(pruebas_completo$P4)
+pruebas_completo$P4_bin <- ifelse(pruebas_completo$P4 == 1, 1,
+                                  ifelse(pruebas_completo$P4 == 2, 0, NA))
+
+# Asegurar que P3 y P1 estén como numéricos también
+pruebas_completo$P3 <- as.numeric(pruebas_completo$P3)
+pruebas_completo$P1 <- as.numeric(pruebas_completo$P1)
+
+
+
+# Seleccionar variables numéricas predictoras
+vars_numericas <- pruebas_completo %>%
+  select(P1, P3, EDAD, SEXO, DOMINIO, REGION, ESTRATO)
+
+# Calcular correlaciones con P4_bin
+correlaciones <- cor(pruebas_completo$P4_bin, vars_numericas, use = "pairwise.complete.obs")
+
+# Asignar nombres legibles
+nombres_legibles <- c(
+  "P1 (calorías)", 
+  "P3 (conoce info)", 
+  "Edad", 
+  "Sexo", 
+  "Dominio (zona)", 
+  "Región", 
+  "Estrato socioeconómico"
+)
+
+names(correlaciones) <- nombres_legibles
+
+# Ordenar y mostrar correlaciones
+correlaciones_ordenadas <- sort(correlaciones, decreasing = TRUE)
+correlaciones_ordenadas
+```
 
 4\. Modelado
 
@@ -498,9 +562,7 @@ a\. Conocimiento previo
 
 i\. Elegir 3 algoritmos y 2 predictores para generar las regiones de decisión.
 
-ii\. Elegir 2 de los algoritmos, que se caractericen por ser lentos y usarlos de forma directa (sin resampling) con todos
-
-los atributos posibles, para medir el tiempo requerido para entrenar un modelo.
+ii\. Elegir 2 de los algoritmos, que se caractericen por ser lentos y usarlos de forma directa (sin resampling) con todos los atributos posibles, para medir el tiempo requerido para entrenar un modelo.
 
 b\. Experimentos
 
