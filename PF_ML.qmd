@@ -303,6 +303,7 @@ Transformaciones e ingeniería de características, colocar criterio en que se b
 a\. Omitir alguna característica, cambiar de numérica a texto o crear una nueva a partir de otras
 
 ```{r}
+library(dplyr)
 # Leer los datos originales
 datos <- read.csv("datosTF.csv", header = TRUE)
 
@@ -339,16 +340,15 @@ ii\. De las respuestas de No sabe/No responde, si se considera apropiado o no.
 
 ```{r}
 pruebas$P1[pruebas$P1 == 9] <- NA
-# Definir la función
-convertir_na_a_no_p3 <- function(data) {
-  data$P3 <- ifelse(is.na(data$P3), 2, data$P3)
-  return(data)
-}
-pruebas <- convertir_na_a_no_p3(pruebas)
+
+
+pruebas$P3[is.na(pruebas$P3)] <- 9  # Convertir NA a 9
+
 pruebas$P4[pruebas$P4 == 9] <- NA
 pruebas$P7[pruebas$P7 == 9] <- NA
-# Contar valores NA por columna
-colSums(is.na(pruebas))
+
+
+pruebas$P4[is.na(pruebas$P4)] <- 2
 # Convertir P4 a binaria si es factor
 pruebas$P4_bin <- ifelse(pruebas$P4 == "SI" | pruebas$P4 == 1, 1,
                          ifelse(pruebas$P4 == "NO" | pruebas$P4 == 2, 0, NA))
@@ -359,4 +359,155 @@ cor.test(pruebas$P4_bin, as.numeric(pruebas$P3), use = "complete.obs")
 
 
 table(pruebas$P3, useNA = "ifany")
+
+table(pruebas$P4, useNA = "ifany")
+table(datos$P4, useNA = "ifany")
 ```
+
+```{r}
+library(class)  # contiene la función knn
+
+library(dplyr)
+# Leer los datos originales
+datos <- read.csv("datosTF.csv", header = TRUE)
+
+# Copiar los datos a un nuevo data frame para trabajar
+pruebas <- datos
+
+pruebas$P7 <- NULL
+pruebas$EST_DIS <- NULL
+pruebas$ENT <- NULL
+pruebas$UPM_DIS <- NULL
+
+# Paso 1: Separar observaciones con y sin NA en P4
+train_knn <- subset(pruebas, !is.na(P4))  # Datos completos (sí tienen P4)
+test_knn  <- subset(pruebas, is.na(P4))   # Datos incompletos (falta P4)
+
+# Paso 2: Seleccionar rasgos predictivos para k-NN
+# Usa solo variables sin NA y numéricas/categóricas útiles
+rasgos <- c( "EDAD", "SEXO", "DOMINIO", "REGION", "ESTRATO")
+
+# Paso 3: Asegúrate de no tener NA en los rasgos seleccionados
+train_knn <- train_knn[complete.cases(train_knn[, rasgos]), ]
+test_knn  <- test_knn[complete.cases(test_knn[, rasgos]), ]
+
+# Paso 4: Aplicar k-NN para predecir P4 en test_knn
+P4_pred <- knn(train_knn[, rasgos],
+               test_knn[, rasgos],
+               cl = train_knn$P4,
+               k = 5)
+
+# Paso 5: Asignar las predicciones a test_knn
+test_knn$P4 <- P4_pred
+
+# Paso 6: Unir los datos imputados con los datos originales
+pruebas_imputado <- rbind(train_knn, test_knn)
+
+
+pruebas_completo <- rbind(train_knn, test_knn)
+nrow(pruebas_completo)  # Debe dar 42207
+str(pruebas_completo)
+
+# Convertir P4 a binaria: SI (1) / NO (0)
+pruebas_completo$P4_bin <- ifelse(pruebas_completo$P4 == 1 | pruebas_completo$P4 == "SI", 1,
+                                  ifelse(pruebas_completo$P4 == 2 | pruebas_completo$P4 == "NO", 0, NA))
+
+# Asegurarte que P3 esté en formato numérico
+pruebas_completo$P3 <- as.numeric(pruebas_completo$P3)
+
+# Calcular correlación
+cor.test(pruebas_completo$P4_bin, pruebas_completo$P3, use = "complete.obs")
+
+```
+
+c\. En variables categóricas considerar
+
+i\. Agrupar para no manejar demasiados valores.
+
+-   La variable ENT (Entidad federativa), que originalmente tenía **32 niveles**, fue evaluada. Aunque es una variable relevante geográficamente, **no se incluyó en el modelado final**, ya que su granularidad y baja correlación con la variable objetivo (P4) no justificaban su uso.
+
+    En caso de requerirse más adelante, podría agruparse en macrozonas como **Norte, Centro, CDMX y Sur**, ya representadas en la variable REGION.
+
+ii\. Eliminar renglones con menos de 10 ocurrencias o agruparlos.
+
+```{r}
+table(pruebas_completo$P1)
+table(pruebas_completo$P3)
+table(pruebas_completo$P4)
+table(pruebas_completo$SEXO)
+table(pruebas_completo$DOMINIO)
+table(pruebas_completo$REGION)
+table(pruebas_completo$ESTRATO)
+```
+
+```{r}
+# Filtrar casos con P1 o P3 igual a 9 y P4 distinto de 9
+casos_inconsistentes <- subset(pruebas_completo, 
+                                (P1 == 9 | P3 == 9) & P4 != 9)
+
+# Mostrar cuántos casos hay
+nrow(casos_inconsistentes)
+
+# Opcional: ver tabla cruzada
+table(casos_inconsistentes$P1, casos_inconsistentes$P4)
+table(casos_inconsistentes$P3, casos_inconsistentes$P4)
+
+
+# Leer los datos originales
+datos <- read.csv("datosTF.csv", header = TRUE)
+datos$P1[is.na(datos$P1)] <- 9
+datos$P3[is.na(datos$P3)] <- 9
+
+# Filtrar casos con P1 o P3 igual a 9 y P4 distinto de 9
+casos_inconsistentes <- subset(datos, 
+                                (P1 == 9 | P3 == 9) & P4 != 9)
+
+# Mostrar cuántos casos hay
+nrow(casos_inconsistentes)
+
+# Opcional: ver tabla cruzada
+table(casos_inconsistentes$P1, casos_inconsistentes$P4)
+table(casos_inconsistentes$P3, casos_inconsistentes$P4)
+```
+
+iii\. Crear variables binarias.
+
+d\. En variables cuantitativas, sean discretas o continuas, considerar.
+
+i\. Omitir el percentil 1 y el 99 de los datos, para disminuir outliers.
+
+ii\. Crear categorías por ejemplo en edad si es bebe, niño, adolescente, adulto y adulto mayor.
+
+```{r}
+library(dplyr)
+
+pruebas <- pruebas |> 
+  mutate(Edad_grupo = case_when(
+    EDAD <= 30                  ~ "Joven",
+    EDAD >= 31 & EDAD <= 45     ~ "Adulto joven",
+    EDAD >= 46 & EDAD <= 60     ~ "Adulto",
+    EDAD >= 61                  ~ "Adulto mayor"
+  ))
+```
+
+e\. Realizar actividades de entendimiento de los datos, si se considera necesario ante los cambios.
+
+4\. Modelado
+
+a\. Conocimiento previo
+
+i\. Elegir 3 algoritmos y 2 predictores para generar las regiones de decisión.
+
+ii\. Elegir 2 de los algoritmos, que se caractericen por ser lentos y usarlos de forma directa (sin resampling) con todos
+
+los atributos posibles, para medir el tiempo requerido para entrenar un modelo.
+
+b\. Experimentos
+
+i\. Especificar por algoritmo las variables a usar, así como si se van a escalar (normalizar o estandarizar) o no.
+
+ii\. Explicar la estrategia de creación de CE, CV y CP, junto al método de remuestreo a utilizar.
+
+iii\. Definir los valores de los hiperparámetros a probar.
+
+iv\. Construir los modelos de todos los algoritmos bajo las condiciones establecidas.
