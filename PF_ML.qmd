@@ -269,13 +269,24 @@ ggplot(prob1, aes(x = as.factor(ESTRATO), fill = P4)) +
        y = "Proporción",
        fill = "P4") +
   theme_minimal()
+
+
+
+# ----------- Entidad Federativa (ENT)
+ggplot(prob1, aes(x = as.factor(ENT), fill = P4)) +
+  geom_bar(position = "fill") +
+  labs(title = "Distribución por Entidad Federativa y lectura de info nutrimental (P4)",
+       x = "Entidad federativa (1 a 32)",
+       y = "Proporción",
+       fill = "P4") +
+  theme_minimal()
 ```
 
 e\. Otros análisis bivariados y/o multivariados.
 
 f\. Escribir los hallazgos e información útil de este paso
 
--   **Edad** muestra una distribución distinta entre quienes leen y quienes no leen la información nutrimental. El gráfico de boxplot indica que las personas que **no leen tienden a ser ligeramente mayores**. Aunque la correlación es baja (r = -0.038), el patrón visual respalda esta diferencia.
+-   **Edad** muestra una distribución distinta entre quienes leen y quienes no leen la información nutrimental. El gráfico de boxplot indica que las personas que **no leen tienden a ser ligeramente mayores**. Aunque la correlación es baja (r = -0.038), el patrón visual respalda esta diferencia. Agruparemos las edades por intervalos.
 
 -   En **P1** (percepción de calorías que se deben consumir), se observó una **asociación importante con P4**. Aquellos que **no leen** las etiquetas se distribuyen de forma distinta entre las categorías calóricas, siendo más frecuentes en los extremos. Esta variable presentó la correlación **más fuerte con la variable objetivo** (r = -0.193), por lo que es una **predictora útil para modelado**.
 
@@ -284,3 +295,68 @@ f\. Escribir los hallazgos e información útil de este paso
 -   Las variables **Sexo**, **Región**, **Dominio (zona urbana/rural)** y **Estrato socioeconómico** muestran patrones visuales diferenciables en las proporciones de lectura (P4), aunque sus **correlaciones individuales fueron bajas** (todas menores a r = ±0.06). Sin embargo, se sugiere conservarlas en el modelado, ya que podrían tener **efectos combinados o no lineales**, útiles en algoritmos como árboles de decisión.
 
 -   Finalmente, variables técnicas como **Entidad federativa (ENT)**, **UPM de diseño** y **Estrato de diseño** presentaron correlaciones cercanas a cero. Aunque pueden ser útiles para análisis exploratorio o ajustes de diseño muestral, **se sugiere descartarlas para el modelado predictivo** si no se justifica su aporte explicativo.
+
+3\. Preparación de los datos
+
+Transformaciones e ingeniería de características, colocar criterio en que se basó cualquiera de las decisiones
+
+a\. Omitir alguna característica, cambiar de numérica a texto o crear una nueva a partir de otras
+
+```{r}
+# Leer los datos originales
+datos <- read.csv("datosTF.csv", header = TRUE)
+
+# Copiar los datos a un nuevo data frame para trabajar
+pruebas <- datos
+
+# Eliminar las columnas
+
+pruebas$EST_DIS <- NULL
+pruebas$ENT <- NULL
+pruebas$UPM_DIS <- NULL
+
+# Crear nueva columna Edad_grupo
+pruebas <- pruebas |> 
+  mutate(Edad_grupo = case_when(
+    EDAD >= 20 & EDAD <= 34 ~ "20–34",
+    EDAD >= 35 & EDAD <= 49 ~ "35–49",
+    EDAD >= 50 & EDAD <= 64 ~ "50–64",
+    EDAD >= 65 & EDAD <= 80 ~ "65–80",
+    EDAD > 80              ~ "80+"
+  ))
+
+
+colSums(is.na(pruebas))
+# Confirmar los cambios
+str(pruebas)
+```
+
+b\. Sustitución (imputación)
+
+i\. De los valores NA.
+
+ii\. De las respuestas de No sabe/No responde, si se considera apropiado o no.
+
+```{r}
+pruebas$P1[pruebas$P1 == 9] <- NA
+# Definir la función
+convertir_na_a_no_p3 <- function(data) {
+  data$P3 <- ifelse(is.na(data$P3), 2, data$P3)
+  return(data)
+}
+pruebas <- convertir_na_a_no_p3(pruebas)
+pruebas$P4[pruebas$P4 == 9] <- NA
+pruebas$P7[pruebas$P7 == 9] <- NA
+# Contar valores NA por columna
+colSums(is.na(pruebas))
+# Convertir P4 a binaria si es factor
+pruebas$P4_bin <- ifelse(pruebas$P4 == "SI" | pruebas$P4 == 1, 1,
+                         ifelse(pruebas$P4 == "NO" | pruebas$P4 == 2, 0, NA))
+
+
+# Correlación con pares completos
+cor.test(pruebas$P4_bin, as.numeric(pruebas$P3), use = "complete.obs")
+
+
+table(pruebas$P3, useNA = "ifany")
+```
